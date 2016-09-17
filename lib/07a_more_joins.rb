@@ -26,42 +26,30 @@ require_relative './sqlzoo.rb'
 def alison_artist
   # Select the name of the artist who recorded the song 'Alison'.
   execute(<<-SQL)
-    SELECT
-      artist
-    FROM
-      albums
-    JOIN
-      tracks on tracks.album = albums.asin
-    WHERE
-      song = 'Alison'
+  SELECT albums.artist
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE song = 'Alison'
   SQL
 end
 
 def exodus_artist
   # Select the name of the artist who recorded the song 'Exodus'.
   execute(<<-SQL)
-  SELECT
-    artist
-  FROM
-    albums
-  JOIN
-    tracks on tracks.album = albums.asin
-  WHERE
-    song = 'Exodus'
+  SELECT albums.artist
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE song = 'Exodus'
   SQL
 end
 
 def blur_songs
   # Select the `song` for each `track` on the album `Blur`.
   execute(<<-SQL)
-    SELECT
-      song
-    FROM
-      tracks
-    JOIN
-      albums ON albums.asin = tracks.album
-    WHERE
-      albums.title  = 'Blur'
+  SELECT tracks.song
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE albums.title = 'Blur'
   SQL
 end
 
@@ -70,18 +58,12 @@ def heart_tracks
   # the word 'Heart' (albums with no such tracks need not be shown). Order first by
   # the number of such tracks, then by album title.
   execute(<<-SQL)
-    SELECT
-      title, COUNT(*) AS num_tracks
-    FROM
-      albums
-    JOIN
-     tracks on albums.asin = tracks.album
-    WHERE
-      song LIKE '%Heart%'
-    GROUP BY
-      asin
-    ORDER BY
-      num_tracks DESC, title
+  SELECT albums.title, COUNT(*)
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE song LIKE '%Heart%'
+  GROUP BY albums.title
+  ORDER BY COUNT(*) DESC, albums.title
   SQL
 end
 
@@ -89,14 +71,10 @@ def title_tracks
   # A 'title track' has a `song` that is the same as its album's `title`. Select
   # the names of all the title tracks.
   execute(<<-SQL)
-    SELECT
-      song
-    FROM
-      tracks
-    JOIN
-      albums ON tracks.album = albums.asin
-    WHERE
-      song = albums.title
+  SELECT tracks.song
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE tracks.song = albums.title
   SQL
 end
 
@@ -104,14 +82,10 @@ def eponymous_albums
   # An 'eponymous album' has a `title` that is the same as its recording
   # artist's name. Select the titles of all the eponymous albums.
   execute(<<-SQL)
-  SELECT
-    DISTINCT title
-  FROM
-    albums
-  JOIN
-    tracks ON tracks.album = albums.asin
-  WHERE
-    artist = albums.title
+  SELECT DISTINCT albums.title
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  WHERE albums.title = albums.artist
   SQL
 end
 
@@ -119,14 +93,11 @@ def song_title_counts
   # Select the song names that appear on more than two albums. Also select the
   # COUNT of times they show up.
   execute(<<-SQL)
-    SELECT
-      DISTINCT song, COUNT(*) AS appearance_count
-    FROM
-      tracks
-    GROUP BY
-      song
-    HAVING
-      COUNT(*) > 2
+  SELECT tracks.song, COUNT(*)
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  GROUP BY tracks.song
+  HAVING COUNT(*) > 2
   SQL
 end
 
@@ -135,16 +106,11 @@ def best_value
   # pence. Find the good value albums - show the title, the price and the number
   # of tracks.
   execute(<<-SQL)
-    SELECT
-      albums.title, albums.price, COUNT(*)
-    FROM
-      albums
-    JOIN
-      tracks ON tracks.album = albums.asin
-    GROUP BY
-      albums.asin
-    HAVING
-      albums.price / COUNT(*) < 0.50
+  SELECT albums.title, albums.price, COUNT(*)
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  GROUP BY albums.asin
+  HAVING price / COUNT(*) < 0.50
   SQL
 end
 
@@ -153,17 +119,12 @@ def top_track_counts
   # tracks. List the top 10 albums. Select both the album title and the track
   # count, and order by both track count and title (descending).
   execute(<<-SQL)
-    SELECT
-      albums.title, COUNT(*)
-    FROM
-      albums
-    JOIN
-      tracks ON tracks.album = albums.asin
-    GROUP BY
-      albums.asin
-    ORDER BY
-      COUNT(*) DESC, albums.title DESC
-    LIMIT 10
+  SELECT albums.title, COUNT(*)
+  FROM albums
+  JOIN tracks on albums.asin = tracks.album
+  GROUP BY albums.asin
+  ORDER BY COUNT(*) DESC, albums.title DESC
+  LIMIT 10
   SQL
 end
 
@@ -171,28 +132,18 @@ def rock_superstars
   # Select the artist who has recorded the most rock albums, as well as the
   # number of albums. HINT: use LIKE '%Rock%' in your query.
   execute(<<-SQL)
-    SELECT
-      artist, COUNT(*)
-    FROM (
-      SELECT
-        album, artist, COUNT(*)
-      FROM
-        albums
-      JOIN
-        styles on albums.asin = styles.album
-      WHERE
-        styles.style LIKE '%Rock%'
-      GROUP BY
-        album, artist
-    ) as x
-    GROUP BY
-      artist
-    ORDER BY
-      COUNT(*) DESC
-    LIMIT
-      1
-
-    SQL
+  SELECT albums.artist, COUNT(*)
+  FROM albums
+  WHERE albums.title in
+    (SELECT albums.title
+    FROM albums
+    JOIN tracks on albums.asin = tracks.album
+    JOIN styles on albums.asin = styles.album
+    WHERE styles.style LIKE '%Rock%')
+  GROUP BY albums.artist
+  ORDER BY COUNT(albums.artist) DESC
+  LIMIT 1
+  SQL
 end
 
 def expensive_tastes
@@ -205,27 +156,19 @@ def expensive_tastes
   # determine the average price per track.
 
   execute(<<-SQL)
-    SELECT
-      styles.style, SUM(tracks_per_album.price) / SUM(tracks_per_album.num_tracks) avg_price
-    FROM
-      styles
-    JOIN (
-      SELECT
-        albums.asin, albums.price, COUNT(*) AS num_tracks
-      FROM
-        albums
-      JOIN
-        tracks ON albums.asin = tracks.album
-      WHERE
-        albums.price IS NOT null
-      GROUP BY
-        albums.asin
-      ) as tracks_per_album ON styles.album = tracks_per_album.asin
-    GROUP BY
-      styles.style
-    ORDER BY
-      avg_price DESC
-    LIMIT
-      5
+  SELECT styles.style, SUM(albums.price) / SUM(track_count)
+  FROM styles
+  JOIN albums on albums.asin = styles.album
+  JOIN (
+    SELECT albums.asin, COUNT(*) as track_count
+    FROM albums
+    JOIN tracks on albums.asin = tracks.album
+    GROUP BY albums.asin
+  ) a on styles.album = a.asin
+  WHERE albums.price IS NOT NULL
+  GROUP BY styles.style
+  ORDER BY SUM(albums.price) / SUM(track_count) DESC
+  LIMIT 5
+
   SQL
 end
